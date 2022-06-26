@@ -25,7 +25,6 @@ class Node(BaseModel):
 
     @staticmethod
     def _passthrough(v: LiteralNode) -> Node | LiteralNode:
-        """Deals with Pydantic "bug" not allowing None in nested types."""
         if v is None:
             return Node(__root__=None)
         return v
@@ -102,6 +101,7 @@ class StringNode(BaseModel):
 
     @validator("args", pre=True)
     def none_is_okay(cls, values):
+        """Allow Nones in args list."""
         return list(map(Node._passthrough, values))
 
     def _slice(self, vals: Vals | None) -> str:
@@ -191,6 +191,11 @@ class NumberNode(BaseModel):
 
     op: Literal["add", "sub", "mul", "div", "mod"]
     args: list[Node]
+
+    @validator("args", pre=True)
+    def none_is_okay(cls, values):
+        """Allow Nones in args list."""
+        return list(map(Node._passthrough, values))
 
     def reduce(self, vals: Vals | None = None) -> LiteralNode:
         """Reduce the numeric operation node."""
