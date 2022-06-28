@@ -1,3 +1,4 @@
+# pylama:ignore=D103
 """Numeric tests."""
 from itertools import count
 from typing import Iterable, Iterator, TypeAlias, cast
@@ -108,49 +109,41 @@ op_lit_params = zip(OPS, _make_lit_params(BASE_PARAMS))
 
 @pytest.mark.parametrize("node,expects", add_params)
 def test_number_add(node: Json, expects: int):
-    """Test addition."""
     node_test(node, {}, expects)
 
 
 @pytest.mark.parametrize("node,expects", sub_params)
 def test_number_sub(node: Json, expects: int):
-    """Test subtraction."""
     node_test(node, {}, expects)
 
 
 @pytest.mark.parametrize("node,expects", mul_params)
 def test_number_mul(node: Json, expects: int):
-    """Test multiplication."""
     node_test(node, {}, expects)
 
 
 @pytest.mark.parametrize("node,expects", mod_params)
 def test_number_mod(node: Json, expects: int):
-    """Test modulo."""
     node_test(node, {}, expects)
 
 
 @pytest.mark.parametrize("node,expects,vals", add_val_params)
 def test_number_add_vals(node: Json, expects: int, vals: Vals):
-    """Test addition with indirect values."""
     node_test(node, vals, expects)
 
 
 @pytest.mark.parametrize("node,expects,vals", sub_val_params)
 def test_number_sub_vals(node: Json, expects: int, vals: Vals):
-    """Test subtraction with indirect values."""
     node_test(node, vals, expects)
 
 
 @pytest.mark.parametrize("node,expects,vals", mul_val_params)
 def test_number_mul_vals(node: Json, expects: int, vals: Vals):
-    """Test multiplication with indirect values."""
     node_test(node, vals, expects)
 
 
 @pytest.mark.parametrize("node,expects,vals", mod_val_params)
 def test_number_mod_vals(node: Json, expects: int, vals: Vals):
-    """Test modtiplication with indirect values."""
     node_test(node, vals, expects)
 
 

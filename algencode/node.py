@@ -3,25 +3,31 @@
 Contains all node models definitions: variable, numeric, string and base. Because they are
 highly coupled, all definitions need to be within this one module.
 """
+# TODO:
+# - add underscore reserved val name checks (for proc names)
 from __future__ import annotations
 
 import functools
 import operator
 from contextlib import suppress
-from typing import Any, Callable, Literal, Optional, Protocol, Type, TypeAlias, Union
+from datetime import date
+from decimal import Decimal
+from typing import Callable, Literal, Mapping, Type, TypeAlias, Union
 
 import pydantic
 from pydantic import BaseModel, validator
 
-from .common import LiteralNode, T, Vals
+from .common import LiteralNode, Number, T, Vals
 
-SubNode: TypeAlias = Union["VariableNode", "StringNode", "NumberNode"]
+Procs: TypeAlias = Mapping[str, "Node"]
+SubNode: TypeAlias = Union["VariableNode", "StringNode", "NumberNode", "ProcNode"]
+OpNode: TypeAlias = Union["StringNode", "NumberNode"]
 
 
 class Node(BaseModel):
     """Node model."""
 
-    __root__: Optional[LiteralNode | SubNode] = pydantic.Field(...)
+    __root__: SubNode | LiteralNode | None = pydantic.Field(...)
 
     @staticmethod
     def _passthrough(v: LiteralNode) -> Node | LiteralNode:
@@ -29,19 +35,39 @@ class Node(BaseModel):
             return Node(__root__=None)
         return v
 
-    def reduce(self, vals: Vals | None = None) -> LiteralNode:
+    def reduce(
+        self,
+        vals: Vals | None = None,
+        procs: Mapping[str, Node] | None = None,
+    ) -> LiteralNode:
         """Reduce this node."""
         r = self.__root__
         match r:
-            case VariableNode() | NumberNode() | StringNode():
-                return r.reduce(vals)
-            case int() | str() | None:
+            case VariableNode() | NumberNode() | StringNode() | ProcNode():
+                return r.reduce(vals, procs)
+            case str() | int() | float() | None:
                 return r
             case _:
                 raise NotImplementedError
 
-    @staticmethod
-    def _type(n: LiteralNode, t: Type[T]) -> T:
+    def reduce_to(
+        self,
+        t: Type[T],
+        vals: Vals | None = None,
+        procs: Mapping[str, Node] | None = None,
+    ) -> T:
+        """Reduce this node to an expected type."""
+        res = self.reduce(vals, procs)
+        if not isinstance(res, t):
+            raise ValueError(f"format node did not reduce to string: {self}")
+        return res
+
+    def _type(
+        self,
+        t: Type[T],
+        vals: Vals | None,
+        procs: Mapping[str, Node] | None,
+    ) -> T:
         """Validate node literal type.
 
         Returns:
@@ -50,20 +76,10 @@ class Node(BaseModel):
         Raises:
             ValueError: If not of specified type.
         """
-        if isinstance(n, t):
-            return n
-        raise ValueError(f"expected {t}, found {type(n)}")
-
-    def _int(self, vals: Vals | None) -> int:
-        """Validate integer literal node."""
-        return Node._type(self.reduce(vals), int)
-
-    def _opt_int(self, vals: Vals | None) -> int | None:
-        return Node._type(self.reduce(vals), int | None)
-
-    def _str(self, vals: Vals | None) -> str:
-        """Validate string literal node."""
-        return Node._type(self.reduce(vals), str)
+        res = self.reduce(vals, procs)
+        if isinstance(res, t):
+            return res
+        raise ValueError(f"expected {t}, found {type(res)}")
 
 
 class VariableNode(BaseModel):
@@ -79,11 +95,33 @@ class VariableNode(BaseModel):
 
     key: pydantic.StrictStr
 
-    def reduce(self, vals: Vals | None = None) -> LiteralNode:
+    def reduce(
+        self,
+        vals: Vals | None = None,
+        _: Mapping[str, Node] | None = None,
+    ) -> LiteralNode:
         """Reduce the variable operation node."""
         if not vals:
-            raise ValueError("value node expected dictionary of values")
-        return vals[self.key]
+            raise ValueError(
+                f"value node with key={self.key} expected dictionary of values"
+            )
+        try:
+            return vals[self.key]
+        except KeyError:
+            raise ValueError(f"key={self.key} not found in values")
+
+
+def _call_attr_op(
+    node: OpNode,
+    vals: Vals | None,
+    procs: Mapping[str, Node] | None = None,
+):
+    with suppress(AttributeError):
+        f: Callable[[Vals | None, Procs | None], LiteralNode] = getattr(
+            node, f"_{node.op}"
+        )
+        return f(vals, procs)
+    raise NotImplementedError(str(node))
 
 
 class StringNode(BaseModel):
@@ -94,9 +132,12 @@ class StringNode(BaseModel):
         - formatting {fmt}
         - repeating {rep}
         - joining {join}
+        - date formatting {date}
+
+    TODO: (More) documentation on operations and their arguments
     """
 
-    op: Literal["slice", "fmt", "rep", "join"]
+    op: Literal["slice", "fmt", "rep", "join", "date"]
     args: list[Node]
 
     @validator("args", pre=True)
@@ -104,13 +145,17 @@ class StringNode(BaseModel):
         """Allow Nones in args list."""
         return list(map(Node._passthrough, values))
 
-    def _slice(self, vals: Vals | None) -> str:
+    def _slice(
+        self,
+        vals: Vals | None,
+        procs: Mapping[str, Node] | None,
+    ) -> str:
         """Slice operation.
 
         Expects {self.args} to be a list of either:
-            - [str, int] for slice s[:stop]
-            - [str, int, int] for slice s[start:stop]
-            - [str, int, int, int] for slice s[start:stop:step]
+            - [str, int?] for slice s[:stop]
+            - [str, int?, int?] for slice s[start:stop]
+            - [str, int?, int?, int?] for slice s[start:stop:step]
 
         Raises:
             ValueError: If invalid number of arguments
@@ -118,62 +163,79 @@ class StringNode(BaseModel):
         """
         match self.args:
             case [s, stop]:
-                (_s, _stop) = (
-                    s._str(vals),
-                    stop._opt_int(vals),
-                )
+                _s = s._type(str, vals, procs)
+                _stop = stop._type(int | None, vals, procs)
                 return _s[:_stop]
             case [s, start, stop]:
-                (_s, _start, _stop) = (
-                    s._str(vals),
-                    start._opt_int(vals),
-                    stop._opt_int(vals),
-                )
+                _s = s._type(str, vals, procs)
+                _start = start._type(int | None, vals, procs)
+                _stop = stop._type(int | None, vals, procs)
                 return _s[_start:_stop]  # type: ignore
             case [s, start, stop, step]:
-                (_s, _start, _stop, _step,) = (
-                    s._str(vals),
-                    start._opt_int(vals),
-                    stop._opt_int(vals),
-                    step._opt_int(vals),
-                )
+                _s = s._type(str, vals, procs)
+                _start = start._type(int | None, vals, procs)
+                _stop = stop._type(int | None, vals, procs)
+                _step = step._type(int | None, vals, procs)
                 return _s[_start:_stop:_step]  # type: ignore
-        raise ValueError(f"slice expects 2, 3 or 4 arguments but found {len(self.args)}")
+        raise ValueError(f"slice expects 2, 3 or 4 arguments, found {len(self.args)}")
 
-    def _fmt(self, vals: Vals | None) -> str:
-        match self.args:
-            case [fmt, v]:
-                _fmt = fmt._str(vals)
-                return _fmt.format(v.reduce(vals))
-        raise ValueError
+    def _fmt(
+        self,
+        vals: Vals | None,
+        procs: Mapping[str, Node] | None,
+    ) -> str:
+        _fmt = self.args[0]._type(str, vals, procs)
+        _v = map(lambda n: Node.reduce(n, vals, procs), self.args[1:])
+        return _fmt.format(*_v)
 
-    def _rep(self, vals: Vals | None) -> str:
+    def _rep(
+        self,
+        vals: Vals | None,
+        procs: Mapping[str, Node] | None,
+    ) -> str:
         match self.args:
             case [s, n]:
-                _s = s._str(vals)
-                _n = n._int(vals)
+                _s = s._type(str, vals, procs)
+                _n = n._type(int, vals, procs)
                 return _s * _n
         raise ValueError
 
-    def _join(self, vals: Vals | None) -> str:
+    def _join(
+        self,
+        vals: Vals | None,
+        procs: Mapping[str, Node] | None,
+    ) -> str:
         match self.args:
             case [delim, *args]:
-                _delim = delim._str(vals)
-                _args = [a._str(vals) for a in args]
+                _delim = delim._type(str, vals, procs)
+                _args = [a._type(str, vals, procs) for a in args]
                 return _delim.join(_args)
         raise ValueError
 
-    def reduce(self, vals: Vals | None = None) -> LiteralNode:
-        """Reduce the string operation node."""
-        with suppress(AttributeError):
-            f: Callable[[Vals | None], LiteralNode] = getattr(self, f"_{self.op}")
-            return f(vals)
-        raise NotImplementedError
+    def _date(
+        self,
+        vals: Vals | None,
+        procs: Mapping[str, Node] | None,
+    ) -> str:
+        match self.args:
+            case [fmt, d]:
+                _fmt = fmt._type(str, vals, procs)
+                _d = d._type(date, vals, procs)
+                return _d.strftime(_fmt)
+        raise ValueError
+
+    def reduce(
+        self,
+        vals: Vals | None = None,
+        procs: Mapping[str, Node] | None = None,
+    ) -> LiteralNode:
+        """Reduce this string operation node."""
+        return _call_attr_op(self, vals, procs)
 
 
 Reducer: TypeAlias = Callable[[T, T], T]
 
-NUM_REDUCERS: dict[str, Reducer] = dict(
+NUM_BINARY_REDUCERS: dict[str, Reducer] = dict(
     zip(
         ["add", "sub", "mul", "mod"],
         [
@@ -187,9 +249,12 @@ NUM_REDUCERS: dict[str, Reducer] = dict(
 
 
 class NumberNode(BaseModel):
-    """Numeric operation node."""
+    """Numeric operation node.
 
-    op: Literal["add", "sub", "mul", "div", "mod"]
+    TODO: Documentation on operations and their arguments
+    """
+
+    op: Literal["add", "sub", "mul", "div", "mod", "round"]
     args: list[Node]
 
     @validator("args", pre=True)
@@ -197,19 +262,58 @@ class NumberNode(BaseModel):
         """Allow Nones in args list."""
         return list(map(Node._passthrough, values))
 
-    def reduce(self, vals: Vals | None = None) -> LiteralNode:
-        """Reduce the numeric operation node."""
-        args = map(lambda n: Node.reduce(n, vals), self.args)
-        return functools.reduce(NUM_REDUCERS[self.op], args)
+    def _round(
+        self,
+        vals: Vals | None,
+        procs: Mapping[str, Node] | None,
+    ) -> Number:
+        match self.args:
+            case [n]:
+                _n = n._type(Number, vals, procs)
+                return round(_n)
+            case [n, ndigits]:
+                _n = n._type(Number, vals, procs)
+                _ndigits = ndigits._type(int | None, vals, procs)
+                return round(_n, _ndigits)
+        raise ValueError(f"round expects 1 or 2 arguments, found {len(self.args)}")
+
+    def reduce(
+        self,
+        vals: Vals | None = None,
+        procs: Mapping[str, Node] | None = None,
+    ) -> LiteralNode:
+        """Reduce this numeric operation node."""
+        args = map(lambda n: n._type(Number, vals, procs), self.args)
+        if binary_reducer := NUM_BINARY_REDUCERS.get(self.op):
+            return functools.reduce(binary_reducer, args)
+        return _call_attr_op(self, vals)
 
 
-class _Model(Protocol):
-    @classmethod
-    def update_forward_refs(cls, **localns: Any):
-        ...
+class ProcNode(BaseModel):
+    """Stored procedure node."""
+
+    proc: pydantic.StrictStr
+    args: list[Node]
+
+    @property
+    def _proc_keys(self):
+        return [f"_{i}" for i in range(len(self.args))]
+
+    def reduce(
+        self,
+        vals: Vals | None = None,
+        procs: Mapping[str, Node] | None = None,
+    ) -> LiteralNode:
+        """Reduce this stored proceedure node."""
+        if procs is None:
+            raise ValueError("expected proc map, found None")
+        if n := procs.get(self.proc):
+            proc_vals = dict(zip(self._proc_keys, [a.reduce(vals) for a in self.args]))
+            return n.reduce(proc_vals)
+        raise ValueError(f'failed to find proc node "{self.proc}"')
 
 
-MODEL_TYPES: list[_Model] = [
+MODEL_TYPES = [
     Node,
     VariableNode,
     NumberNode,
