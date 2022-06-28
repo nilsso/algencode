@@ -19,8 +19,8 @@ s = """
 
 n = Node.parse_raw(s)
 
-assert n.reduce({"a": 2, "b": 3}) == 12
-assert n.reduce({"a": 24, "b": 25}) == 100
+assert n.reduce({"a": 2, "b": 3}) == 12  # 2*(1+2+3) == 12 ✅
+assert n.reduce({"a": 24, "b": 25}) == 100  # 2*(1+24+25) == 100 ✅
 ```
 
 Todo
