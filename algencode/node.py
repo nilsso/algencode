@@ -11,7 +11,7 @@ import functools
 import operator
 from contextlib import suppress
 from datetime import date
-from typing import Callable, Iterable, Literal, Mapping, Type, TypeAlias, Union
+from typing import Callable, Iterable, Literal, Mapping, Type, TypeAlias, Union, cast
 
 import pydantic
 from pydantic import BaseModel, validator
