@@ -30,6 +30,13 @@ class Node(BaseModel):
 
     @staticmethod
     def _passthrough(values: Iterable[LiteralNode]) -> list[Node | LiteralNode]:
+        """Pass `None` values through as `Node(__root__=None)`.
+
+        NOTE: This validator helper is to handle an apparent bug with Pydantic not
+        allowing `None` values with child models in fields specifically annotated to allow
+        `None` values. (Need to report this to Pydantic.)
+        """
+
         def _helper(v: LiteralNode) -> Node | LiteralNode:
             if v is None:
                 return Node(__root__=None)
@@ -144,7 +151,10 @@ class StringNode(BaseModel):
 
     @validator("args", pre=True)
     def none_is_okay(cls, values):
-        """Allow Nones in args list."""
+        """Allow Nones in args list.
+
+        See {_passthrough} for details, and why this is needed for now.
+        """
         return Node._passthrough(values)
 
     def _slice(
@@ -264,7 +274,10 @@ class NumberNode(BaseModel):
 
     @validator("args", pre=True)
     def none_is_okay(cls, values):
-        """Allow Nones in args list."""
+        """Allow Nones in args list.
+
+        See {_passthrough} for details, and why this is needed for now.
+        """
         return Node._passthrough(values)
 
     def _round(
