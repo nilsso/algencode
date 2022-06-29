@@ -26,4 +26,7 @@ assert n.reduce({"a": 24, "b": 25}) == 100  # 2*(1+24+25) == 100 ✅
 Todo
 ----
 
-- [ ] Add `float` to `LiteralNode`
+- [ ] Add some `float` tests
+- [ ] Add some `Decimal` tests
+- [ ] Add some `date` tests
+- [ ] Add some `ProcNode` tests
