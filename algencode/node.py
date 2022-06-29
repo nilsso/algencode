@@ -11,8 +11,7 @@ import functools
 import operator
 from contextlib import suppress
 from datetime import date
-from decimal import Decimal
-from typing import Callable, Literal, Mapping, Type, TypeAlias, Union
+from typing import Callable, Iterable, Literal, Mapping, Type, TypeAlias, Union
 
 import pydantic
 from pydantic import BaseModel, validator
@@ -30,10 +29,13 @@ class Node(BaseModel):
     __root__: SubNode | LiteralNode | None = pydantic.Field(...)
 
     @staticmethod
-    def _passthrough(v: LiteralNode) -> Node | LiteralNode:
-        if v is None:
-            return Node(__root__=None)
-        return v
+    def _passthrough(values: Iterable[LiteralNode]) -> list[Node | LiteralNode]:
+        def _helper(v: LiteralNode) -> Node | LiteralNode:
+            if v is None:
+                return Node(__root__=None)
+            return v
+
+        return list(map(_helper, values))
 
     def reduce(
         self,
@@ -79,7 +81,7 @@ class Node(BaseModel):
         res = self.reduce(vals, procs)
         if isinstance(res, t):
             return res
-        raise ValueError(f"expected {t}, found {type(res)}")
+        raise ValueError(f"expected {t}, found {type(res)} {res}")
 
 
 class VariableNode(BaseModel):
@@ -143,7 +145,7 @@ class StringNode(BaseModel):
     @validator("args", pre=True)
     def none_is_okay(cls, values):
         """Allow Nones in args list."""
-        return list(map(Node._passthrough, values))
+        return Node._passthrough(values)
 
     def _slice(
         self,
@@ -235,14 +237,18 @@ class StringNode(BaseModel):
 
 Reducer: TypeAlias = Callable[[T, T], T]
 
+NUM_BINARY_OPS = Literal["add", "sub", "mul", "mod", "div"]
+NUM_OPS = Literal[NUM_BINARY_OPS, "round"]
+
 NUM_BINARY_REDUCERS: dict[str, Reducer] = dict(
     zip(
-        ["add", "sub", "mul", "mod"],
+        NUM_BINARY_OPS.__args__,
         [
             operator.add,
             operator.sub,
             operator.mul,
             operator.mod,
+            operator.truediv,
         ],
     )
 )
@@ -254,13 +260,13 @@ class NumberNode(BaseModel):
     TODO: Documentation on operations and their arguments
     """
 
-    op: Literal["add", "sub", "mul", "div", "mod", "round"]
+    op: NUM_OPS
     args: list[Node]
 
     @validator("args", pre=True)
     def none_is_okay(cls, values):
         """Allow Nones in args list."""
-        return list(map(Node._passthrough, values))
+        return Node._passthrough(values)
 
     def _round(
         self,

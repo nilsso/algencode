@@ -49,7 +49,7 @@ ORANGE_FNVALS: FileNameVals = {
 }
 
 ORANGE_CHARGES: list[SpecialCharge] = [
-    {"apn": "69142301", "levy": D("0.00")},
+    {"apn": "69142301", "levy": D("7415.50")},
     {"apn": "69142302", "levy": D("7415.50")},
     {"apn": "69142303", "levy": D("8460.68")},
     {"apn": "69142304", "levy": D("7415.50")},

@@ -52,7 +52,8 @@ PROCS = {
     # hyphenated APN formats
     "_apn3332": _apn_proc(3, 6, 9),  # 012-345-678-901
     "_apn3333": _apn_proc(3, 6, 9),
-    "_apn332": _apn_proc(3, 6, 8),
+    "_apn332": _apn_proc(3, 6),
+    "_apn433": _apn_proc(4, 7),
     # multiply value by 100, round, and format to specifications
     "_round": node.Node.parse_obj(
         {
@@ -96,23 +97,49 @@ class FormatBase(pydantic.BaseModel):
     first_line_instructions: list[node.Node] | None
     data_instructions: list[node.Node]
 
+    @pydantic.validator(
+        "file_name_instructions",
+        "header_instructions",
+        "first_line_instructions",
+        pre=True,
+    )
+    def _none_of_none_is_okay(cls, values):
+        """Allow Nones in args list."""
+        if values:
+            return node.Node._passthrough(values)
+
+    @pydantic.validator("data_instructions", pre=True)
+    def none_is_okay(cls, values):
+        """Allow Nones in args list."""
+        return node.Node._passthrough(values)
+
     @abc.abstractmethod
     def _do(self, nodes: list[node.Node], vals: node.Vals) -> str | list[str]:
         ...
 
+    @typing.final
     def do(self, vals: node.Vals) -> str | list[str]:
         return self._do(self.data_instructions, vals)
 
-    def do_contents(self, vals: typing.Iterable[node.Vals]) -> list[str | list[str]]:
-        it = iter(vals)
+    @typing.final
+    def do_contents(
+        self,
+        fnvals: node.Vals,
+        data: typing.Iterable[node.Vals],
+    ) -> list[str | list[str]]:
+        data_it = iter(data)
         rows = []
 
+        def _do_with_fnvals(vals: node.Vals):
+            return self._do(self.data_instructions, {**fnvals, **vals})
+
         if self.header_instructions:
-            rows.append(self._do(self.header_instructions, {}))
+            rows.append(self._do(self.header_instructions, fnvals))
         if self.first_line_instructions:
             nodes = self.data_instructions + self.first_line_instructions
-            rows.append(self._do(nodes, next(it)))
-        rows.extend(map(self.do, it))
+            rows.append(self._do(nodes, {**fnvals, **next(data_it)}))
+
+        rows.extend(map(_do_with_fnvals, data_it))
         return rows
 
     def do_file_name(self, vals: node.Vals) -> str | None:
@@ -147,8 +174,12 @@ class Format(pydantic.BaseModel):
     def do(self, vals: node.Vals) -> str | list[str]:
         return self.__root__.do(vals)
 
-    def do_contents(self, vals: typing.Iterable[node.Vals]) -> list[str | list[str]]:
-        return self.__root__.do_contents(vals)
+    def do_contents(
+        self,
+        fnvals: node.Vals,
+        vals: typing.Iterable[node.Vals],
+    ) -> list[str | list[str]]:
+        return self.__root__.do_contents(fnvals, vals)
 
     def do_file_name(self, vals: node.Vals) -> str | None:
         return self.__root__.do_file_name(vals)
@@ -171,7 +202,5 @@ if __name__ == "__main__":
         fnvals = typing.cast(node.Vals, params["file_name_vals"])
 
         print(fmt.do_file_name(fnvals))
-        print(fmt.do_contents(params["special_charges"]))
-        # for _vals in params["special_charges"]:
-        #     vals = typing.cast(node.Vals, {**_vals, **file_name_vals})
-        #     print(fmt.do(vals))
+        for row in fmt.do_contents(fnvals, params["special_charges"]):
+            print(row)
