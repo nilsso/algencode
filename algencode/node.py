@@ -239,10 +239,9 @@ Reducer: TypeAlias = Callable[[T, T], T]
 
 NUM_BINARY_OPS = Literal["add", "sub", "mul", "mod", "div"]
 NUM_OPS = Literal[NUM_BINARY_OPS, "round"]
-
 NUM_BINARY_REDUCERS: dict[str, Reducer] = dict(
     zip(
-        NUM_BINARY_OPS.__args__,
+        cast(tuple[str], NUM_BINARY_OPS.__args__),  # type: ignore
         [
             operator.add,
             operator.sub,
