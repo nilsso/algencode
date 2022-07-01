@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import functools
 import operator
-import typing
 from contextlib import suppress
 from datetime import date
 from typing import Callable, Literal, Mapping, Type, TypeAlias, Union, get_args
@@ -47,8 +46,8 @@ class Node(BaseModel):
     def reduce_to(
         self,
         t: Type[T],
-        vals: Vals | None = None,
-        procs: Mapping[str, Node] | None = None,
+        vals: Vals | None,
+        procs: Mapping[str, Node] | None,
     ) -> T:
         """Reduce this node to an expected type."""
         res = self.reduce(vals, procs)
@@ -95,7 +94,7 @@ class VariableNode(BaseModel):
 
     def reduce(
         self,
-        vals: Vals | None = None,
+        vals: Vals | None,
         _: Mapping[str, Node] | None = None,
     ) -> LiteralNode:
         """Reduce the variable operation node."""
@@ -103,8 +102,8 @@ class VariableNode(BaseModel):
             raise RuntimeError(
                 f"value node with key={self.key} expected dictionary of values"
             )
-        if v := vals.get(self.key):
-            return v
+        with suppress(KeyError):
+            return vals[self.key]
         raise KeyError(f"key={self.key} not found in values")
 
 
