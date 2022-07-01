@@ -7,133 +7,79 @@ import pytest
 
 from algencode import node
 
+
+def f(t, op, args):
+    n = node.Node(__root__=t(op=op, args=args))
+    obj = {
+        "op": op,
+        "args": args,
+    }
+    return (n, obj)
+
+
 PARAMS = [
-    ["abc", "1"],
-    1,
-    3.14,
-    [True, False],
-    None,
+    f(
+        node.StringNode,
+        "slice",
+        ["abcd", 1, 3],
+    ),
+    f(
+        node.StringNode,
+        "fmt",
+        ["{:08}", "cool"],
+    ),
+    f(
+        node.StringNode,
+        "rep",
+        ["_", 10],
+    ),
+    f(
+        node.StringNode,
+        "join",
+        [",", "a", "b", "c"],
+    ),
+    f(
+        node.NumberNode,
+        "add",
+        [1, 2, 3],
+    ),
+    f(
+        node.NumberNode,
+        "sub",
+        [1, 2, 3],
+    ),
+    f(
+        node.NumberNode,
+        "mul",
+        [1, 2, 3],
+    ),
+    f(
+        node.NumberNode,
+        "div",
+        [1, 2, 3],
+    ),
+    f(
+        node.NumberNode,
+        "mod",
+        [1, 2, 3],
+    ),
+    f(
+        node.NumberNode,
+        "round",
+        [1.23],
+    ),
 ]
 
 
-def _test_parse_primitive(v):
-    t = node.Node.parse_obj(v)
-    e = node.Node(__root__=v)
-    if t != e:
-        pytest.fail(f'"{t}" != "{e}"')
+@pytest.mark.parametrize("n,obj", PARAMS)
+def test_parse_node(n, obj):
+    assert n == node.Node.parse_obj(obj)
 
 
-def _test_parse_primitive_json(v):
-    r = json.dumps(v)
-    t = node.Node.parse_raw(r)
-    e = node.Node(__root__=v)
-    if t != e:
-        pytest.fail(f'"{t}" != "{e}"')
-
-
-@pytest.mark.parametrize("v", PARAMS, ids=str)
-def test_parse_primitive(v):
-    if isinstance(v, list):
-        for _v in v:
-            _test_parse_primitive(_v)
-    else:
-        _test_parse_primitive(v)
-
-
-@pytest.mark.parametrize("v", PARAMS, ids=str)
-def test_parse_primitive_json(v):
-    if isinstance(v, list):
-        for _v in v:
-            _test_parse_primitive_json(_v)
-    else:
-        _test_parse_primitive_json(v)
-
-
-@pytest.fixture
-def var_node():
-    v = {"key": "foo"}
-    e = node.Node(__root__=node.VariableNode(key="foo"))
-    return v, e
-
-
-def test_parse_var_node(var_node):
-    v, e = var_node
-    t = node.Node.parse_obj(v)
-    assert t == e
-
-
-def test_parse_var_node_json(var_node):
-    v, e = var_node
-    r = json.dumps(v)
-    print(r)
-    t = node.Node.parse_raw(r)
-    assert t == e
-
-
-def lit_node(v: node.LiteralNode):
-    return node.Node(__root__=v)
-
-
-def lit_nodes(v: typing.Iterable[node.LiteralNode]):
-    return list(map(lit_node, v))
-
-
-def op_node_params(op_node: typing.Type[node.OpNode], op, args):
-    return (
-        {"op": op, "args": args},
-        op_node(op=op, args=lit_nodes(args)),
-    )
-
-
-def _test_op_node(v, op_node):
-    t = node.Node.parse_obj(v)
-    e = node.Node(__root__=op_node)
-    assert t == e
-
-
-def _test_op_node_json(v, op_node):
-    r = json.dumps(v)
-    t = node.Node.parse_raw(r)
-    e = node.Node(__root__=op_node)
-    assert t == e
-
-
-STRING_NODE_PARAMS = [
-    op_node_params(node.StringNode, "slice", ["abcd", 1, 3]),
-    op_node_params(node.StringNode, "fmt", ["{:08}", "cool"]),
-    op_node_params(node.StringNode, "rep", ["_", 10]),
-    op_node_params(node.StringNode, "join", [",", "a", "b", "c"]),
-]
-
-
-@pytest.mark.parametrize("v,op_node", STRING_NODE_PARAMS)
-def test_parse_string_node(v, op_node):
-    _test_op_node(v, op_node)
-
-
-@pytest.mark.parametrize("v,op_node", STRING_NODE_PARAMS)
-def test_parse_string_node_json(v, op_node):
-    _test_op_node_json(v, op_node)
-
-
-NUMBER_NODE_PARAMS = [
-    op_node_params(node.NumberNode, "add", [1, 2, 3]),
-    op_node_params(node.NumberNode, "sub", [1, 2, 3]),
-    op_node_params(node.NumberNode, "mul", [1, 2, 3]),
-    op_node_params(node.NumberNode, "div", [1, 2, 3]),
-    op_node_params(node.NumberNode, "mod", [1, 2, 3]),
-    op_node_params(node.NumberNode, "round", [1.23]),
-]
-
-
-@pytest.mark.parametrize("v,op_node", STRING_NODE_PARAMS)
-def test_parse_number_node(v, op_node):
-    _test_op_node(v, op_node)
-
-
-@pytest.mark.parametrize("v,op_node", STRING_NODE_PARAMS)
-def test_parse_number_node_json(v, op_node):
-    _test_op_node_json(v, op_node)
+@pytest.mark.parametrize("n,obj", PARAMS)
+def test_parse_node_json(n, obj):
+    r = json.dumps(obj)
+    assert n == node.Node.parse_raw(r)
 
 
 COMPOUND_PARAM = {
@@ -159,7 +105,7 @@ COMPOUND_EXPECT = node.Node(
     __root__=node.StringNode(
         op="fmt",
         args=[
-            node.Node(__root__="{:09}"),
+            "{:09}",
             node.Node(
                 __root__=node.NumberNode(
                     op="round",
@@ -169,7 +115,7 @@ COMPOUND_EXPECT = node.Node(
                                 op="mul",
                                 args=[
                                     node.Node(__root__=node.VariableNode(key="levy")),
-                                    node.Node(__root__=100),
+                                    100,
                                 ],
                             ),
                         ),
