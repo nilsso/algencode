@@ -5,9 +5,7 @@ from typing import Iterable, Iterator, TypeAlias, cast
 
 import pytest
 
-from algencode.common import Json, LiteralNode, Vals
-
-from .common import node_test
+from .common import *
 
 BaseInput: TypeAlias = list[int]
 BaseExpect: TypeAlias = tuple[int, int, int, int]  # (+,-,*,%)
@@ -82,13 +80,45 @@ def _make_val_params(
     return new_node, expects, vals
 
 
-BASE_PARAMS = [
-    ([1, 2, 3], (6, -4, 6, 1)),
-    ([2, 3, 4], (9, -5, 24, 2)),
-    ([25, 5], (30, 20, 125, 0)),
+# fmt: off
+BASE_PARAMS = [  # noqa
+    (
+        [1, 2, 3],
+        (
+             6,  # add
+            -4,  # sub
+             6,  # mul
+             1,  # mod
+             2,  # mean
+             3,  # len
+        ),
+    ),
+    (
+        [2, 3, 4],
+        (
+             9,  # add
+            -5,  # sub
+            24,  # mul
+             2,  # mod
+             3,  # mean
+             3,  # len
+        ),
+    ),
+    (
+        [25, 5],
+        (
+             30,  # add
+             20,  # sub
+            125,  # mul
+              0,  # mod
+             15,  # mean
+              2,  # len
+        ),
+    ),
 ]
+# fmt: on
 
-OPS = ["add", "sub", "mul", "mod"]
+OPS = ["add", "sub", "mul", "mod", "mean", "len"]
 
 op_lit_params = zip(OPS, _make_lit_params(BASE_PARAMS))
 
@@ -97,6 +127,8 @@ op_lit_params = zip(OPS, _make_lit_params(BASE_PARAMS))
     sub_params,
     mul_params,
     mod_params,
+    mean_params,
+    len_params,
 ) = params = tuple(map(tuple, map(_make_params, op_lit_params)))
 
 (
@@ -104,6 +136,8 @@ op_lit_params = zip(OPS, _make_lit_params(BASE_PARAMS))
     sub_val_params,
     mul_val_params,
     mod_val_params,
+    mean_val_params,
+    len_val_params,
 ) = map(lambda p: map(_make_val_params, p), params)
 
 
@@ -127,6 +161,16 @@ def test_number_mod(node: Json, expects: int):
     node_test(node, {}, expects)
 
 
+@pytest.mark.parametrize("node,expects", mean_params)
+def test_number_len(node: Json, expects: int):
+    node_test(node, {}, expects)
+
+
+@pytest.mark.parametrize("node,expects", len_params)
+def test_number_mean(node: Json, expects: int):
+    node_test(node, {}, expects)
+
+
 @pytest.mark.parametrize("node,expects,vals", add_val_params)
 def test_number_add_vals(node: Json, expects: int, vals: Vals):
     node_test(node, vals, expects)
@@ -147,9 +191,11 @@ def test_number_mod_vals(node: Json, expects: int, vals: Vals):
     node_test(node, vals, expects)
 
 
-# def test_number_composite():
-#     node_test(
-#         {},
-#         {},
-#         8,
-#     )
+@pytest.mark.parametrize("node,expects,vals", mean_val_params)
+def test_number_mean_vals(node: Json, expects: int, vals: Vals):
+    node_test(node, vals, expects)
+
+
+@pytest.mark.parametrize("node,expects,vals", len_val_params)
+def test_number_len_vals(node: Json, expects: int, vals: Vals):
+    node_test(node, vals, expects)

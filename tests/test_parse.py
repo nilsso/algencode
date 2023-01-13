@@ -1,15 +1,14 @@
 # pylama:ignore=D103
 """Parsing tests."""
 import json
-import typing
 
 import pytest
 
-from algencode import node
+from .common import *
 
 
 def f(t, op, args):
-    n = node.Node(__root__=t(op=op, args=args))
+    n = Node(__root__=t(op=op, args=args))
     obj = {
         "op": op,
         "args": args,
@@ -19,52 +18,52 @@ def f(t, op, args):
 
 PARAMS = [
     f(
-        node.StringNode,
+        StringNode,
         "slice",
         ["abcd", 1, 3],
     ),
     f(
-        node.StringNode,
+        StringNode,
         "fmt",
         ["{:08}", "cool"],
     ),
     f(
-        node.StringNode,
+        StringNode,
         "rep",
         ["_", 10],
     ),
     f(
-        node.StringNode,
+        StringNode,
         "join",
         [",", "a", "b", "c"],
     ),
     f(
-        node.NumberNode,
+        NumberNode,
         "add",
         [1, 2, 3],
     ),
     f(
-        node.NumberNode,
+        NumberNode,
         "sub",
         [1, 2, 3],
     ),
     f(
-        node.NumberNode,
+        NumberNode,
         "mul",
         [1, 2, 3],
     ),
     f(
-        node.NumberNode,
+        NumberNode,
         "div",
         [1, 2, 3],
     ),
     f(
-        node.NumberNode,
+        NumberNode,
         "mod",
         [1, 2, 3],
     ),
     f(
-        node.NumberNode,
+        NumberNode,
         "round",
         [1.23],
     ),
@@ -73,13 +72,13 @@ PARAMS = [
 
 @pytest.mark.parametrize("n,obj", PARAMS)
 def test_parse_node(n, obj):
-    assert n == node.Node.parse_obj(obj)
+    assert n == Node.parse_obj(obj)
 
 
 @pytest.mark.parametrize("n,obj", PARAMS)
 def test_parse_node_json(n, obj):
     r = json.dumps(obj)
-    assert n == node.Node.parse_raw(r)
+    assert n == Node.parse_raw(r)
 
 
 COMPOUND_PARAM = {
@@ -101,20 +100,20 @@ COMPOUND_PARAM = {
     ],
 }
 
-COMPOUND_EXPECT = node.Node(
-    __root__=node.StringNode(
+COMPOUND_EXPECT = Node(
+    __root__=StringNode(
         op="fmt",
         args=[
             "{:09}",
-            node.Node(
-                __root__=node.NumberNode(
+            Node(
+                __root__=NumberNode(
                     op="round",
                     args=[
-                        node.Node(
-                            __root__=node.NumberNode(
+                        Node(
+                            __root__=NumberNode(
                                 op="mul",
                                 args=[
-                                    node.Node(__root__=node.VariableNode(key="levy")),
+                                    Node(__root__=VariableNode(key="levy")),
                                     100,
                                 ],
                             ),
@@ -128,5 +127,5 @@ COMPOUND_EXPECT = node.Node(
 
 
 def test_parse_compound():
-    t = node.Node.parse_obj(COMPOUND_PARAM)
+    t = Node.parse_obj(COMPOUND_PARAM)
     assert t == COMPOUND_EXPECT

@@ -2,8 +2,7 @@
 """More complex (compound) node tests."""
 import pytest
 
-from algencode import Node, Vals
-from algencode.common import Json
+from .common import *
 
 
 @pytest.mark.parametrize(
