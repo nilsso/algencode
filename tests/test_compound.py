@@ -2,7 +2,7 @@
 """More complex (compound) node tests."""
 import pytest
 
-from .common import *
+from .common import Json, Node, Vals
 
 
 @pytest.mark.parametrize(
@@ -25,7 +25,7 @@ def test_compound_01(v: Vals, e: int):
             2,
         ],
     }
-    assert Node.parse_obj(n).reduce(v) == e
+    assert Node.model_validate(n).reduce(v) == e
 
 
 def test_compound_02():
@@ -56,4 +56,4 @@ def test_compound_02():
         ],
     }
 
-    assert Node.parse_obj(n).reduce() == "6543210"
+    assert Node.model_validate(n).reduce() == "6543210"

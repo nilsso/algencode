@@ -1,11 +1,13 @@
 """String node."""
+from __future__ import annotations
+
 from datetime import date
 from typing import Literal
 
 from ..node import Node
 from ..types import LiteralNode, Procs, Reduced, Vals
 from ..utils import call_attr_op, reduce_node, reduce_node_to
-from .base_node import BaseNode
+from ..base_node import BaseNode
 
 STRING_OP = Literal["slice", "fmt", "rep", "join", "date"]
 

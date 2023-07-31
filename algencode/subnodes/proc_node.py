@@ -1,18 +1,19 @@
 """Proc (stored procedure) node."""
+from __future__ import annotations
 
 from pydantic import StrictStr
 
 from ..node import Node
 from ..types import LiteralNode, Procs, Reduced, Vals
 from ..utils import reduce_node
-from .base_node import BaseNode
+from ..base_node import BaseNode
 
 
 class ProcNode(BaseNode):
     """Stored procedure node."""
 
     proc: StrictStr
-    args: list[LiteralNode | Node] | None
+    args: list[LiteralNode | Node] | None = None
 
     def reduce(
         self,
@@ -26,7 +27,7 @@ class ProcNode(BaseNode):
             raise RuntimeError("expected proc map, found None")
         if n := procs.get(self.proc):
             if isinstance(n, dict):
-                n = Node.parse_obj(n)
+                n = Node.model_validate(n)
             if self.args:
                 proc_keys = [f"_{i}" for i in range(len(self.args))]
                 proc_vals = dict(

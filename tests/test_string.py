@@ -1,6 +1,6 @@
 # pylama:ignore=D103
 """String node tests."""
-from .common import *
+from .common import node_test
 
 
 def test_string_slice():

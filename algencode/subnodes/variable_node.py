@@ -1,10 +1,12 @@
 """Variable node model."""
+from __future__ import annotations
+
 from contextlib import suppress
 
 from pydantic import StrictStr
 
 from ..types import Procs, Reduced, Vals
-from .base_node import BaseNode
+from ..base_node import BaseNode
 
 
 class VariableNode(BaseNode):

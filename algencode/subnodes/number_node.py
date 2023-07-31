@@ -8,7 +8,7 @@ from typing import Literal, Sequence, get_args
 from ..node import Node
 from ..types import LiteralNode, Number, OpArgs, Procs, Reduced, Reducer, Vals
 from ..utils import call_attr_op, reduce_node_to
-from .base_node import BaseNode
+from ..base_node import BaseNode
 from .variable_node import VariableNode
 
 

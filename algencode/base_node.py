@@ -1,18 +1,22 @@
-"""Base node."""
+"""Subnode base type (subclassed by subnodes, used by Node)."""
+from __future__ import annotations
+
 import logging
-import traceback
 from abc import ABC
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from ..node import Node
-from ..types import Procs, Reduced, Vals
+from .types import Procs, Reduced, Vals
+
+if TYPE_CHECKING:
+    from .node import Node
 
 logger = logging.getLogger("algencode.subnodes.base_node")
 
 
 class BaseNode(BaseModel, ABC):
-    """Base node model."""
+    """Subnode base type."""
 
     debug: Node | None = Field(default=None, repr=False)
 
@@ -34,8 +38,8 @@ class BaseNode(BaseModel, ABC):
         """
         assert vals is not None
         res = vals["_res"]
-        if force_debug or (self.debug is not None and self.debug.__root__ is not False):
-            if self.debug is None or self.debug.__root__ is True:
+        if force_debug or (self.debug is not None and self.debug.root is not False):
+            if self.debug is None or self.debug.root is True:
                 logger.debug(f"{repr(self)} -> {res}")
             else:
                 logger.debug(self.debug.reduce(vals, procs))

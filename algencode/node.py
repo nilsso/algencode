@@ -1,20 +1,20 @@
-"""Base node module."""
+"""General node type."""
 from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
 from typing import Type
 
-import pydantic
-from pydantic import BaseModel
+from pydantic import RootModel
 
+from .base_node import BaseNode
 from .types import LiteralNode, Procs, Reduced, SubNode, T, Vals
 
 
-class Node(BaseModel):
-    """Node model."""
+class Node(RootModel):
+    """General node type."""
 
-    __root__: LiteralNode | SubNode = pydantic.Field(...)
+    root: LiteralNode | SubNode
 
     def reduce(
         self,
@@ -24,11 +24,11 @@ class Node(BaseModel):
         force_debug: bool = False,
     ) -> Reduced:
         """Reduce this node."""
-        r = self.__root__
+        r = self.root
         match r:
-            case str() | int() | float() | Decimal() | date() | None:
+            case str() | int() | float() | Decimal() | date() | bool() | None:
                 return r
-            case _ if hasattr(r, "reduce"):
+            case BaseNode():
                 return r.reduce(vals, procs, force_debug=force_debug)
             case _:
                 raise NotImplementedError

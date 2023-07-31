@@ -9,7 +9,7 @@ from algencode.types import Json, LiteralNode
 
 def node_test(n: Json, v: Vals, e: str | int):
     __tracebackhide__ = True
-    t = Node.parse_obj(n).reduce(v)
+    t = Node.model_validate(n).reduce(v)
     if t != e:
         pytest.fail(f'"{t}" != "{e}"')
 

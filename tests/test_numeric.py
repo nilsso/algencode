@@ -5,7 +5,7 @@ from typing import Iterable, Iterator, TypeAlias, cast
 
 import pytest
 
-from .common import *
+from .common import Json, LiteralNode, Vals, node_test
 
 BaseInput: TypeAlias = list[int]
 BaseExpect: TypeAlias = tuple[int, int, int, int]  # (+,-,*,%)

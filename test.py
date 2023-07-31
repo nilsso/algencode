@@ -1,11 +1,15 @@
 # pylama: ignore=D100
-from algencode import Node
+import json
+from algencode import Node, NumberNode
+from rich import print
 
-procs = {
-    "_wow": Node.parse_obj({"key": "wow"}),
-}
-n = Node.parse_obj({"proc": "_wow"})
-vals = {
-    "wow": 420,
-}
-print(n.reduce(vals, procs))
+obj = {"op": "add", "args": [1, 2]}
+
+n = Node(root=NumberNode(op="add", args=[1, 2]))
+
+print(n)
+print(n.model_dump())
+print(Node.model_validate(n.model_dump()))
+# print(Node.model_validate(json.dumps(obj)))
+print(NumberNode.model_validate(json.dumps(obj)))
+NumberNode.model_validate_json
